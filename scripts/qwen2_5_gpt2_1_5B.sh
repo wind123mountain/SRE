@@ -55,7 +55,7 @@ OPTS+=" --student_model openai-community/gpt2-xl"
 OPTS+=" --student_tokenizer openai-community/gpt2-xl"
 
 # hf token
-REMOVED
+OPTS+=" --hf_token <hf_token>"
 
 # extra arguments
 OPTS+=" --seed ${SEED}"
