@@ -14,6 +14,9 @@ from torch.cuda.amp import autocast, GradScaler
 from tqdm import tqdm
 from transformers import get_scheduler
 from evaluator import Evaluator
+from span_utils import compute_overall_span_loss, get_spans_offsets
+import spacy
+from spacy.matcher import Matcher
 
 
 def load_tokenizer(model_type, path, kwargs):        
@@ -88,6 +91,17 @@ class Trainer:
         self.s_id_mapping, self.t_id_mapping = get_token_mapping(self.student_tokenizer, 
                                                                  self.teacher_tokenizer, 
                                                                  device=self.student.device)
+        
+        self.nlp = spacy.load("en_core_web_sm")
+        self.matcher = Matcher(self.nlp.vocab)
+        VERB_PHRASE_PATTERN = [
+            {"POS": "AUX", "OP": "*"},
+            {"POS": "ADV", "OP": "*"},
+            {"POS": "VERB", "OP": "+"},
+            {"POS": "ADV", "OP": "*"},
+        ]
+
+        self.matcher.add("VERB_PHRASE", [VERB_PHRASE_PATTERN])
 
     def get_data_loader(self, args: Arguments, student_model_type: str, teacher_model_type: str):
         self.student_tokenizer = load_tokenizer(student_model_type, args.student_tokenizer, 
@@ -131,8 +145,10 @@ class Trainer:
 
         return loss
 
-    def knowledge_distillation_loss(self, student_outputs: StudentOutput,
-                                    teacher_outputs: TeacherOutput = None):
+    def knowledge_distillation_loss(self, student_outputs: StudentOutput, 
+                                    teacher_outputs: TeacherOutput = None, 
+                                    s_inputs = None, t_inputs = None,
+                                    s_offsets_mapping = None, t_offsets_mapping = None):
         kd_loss = 0
         temp_loss = torch.tensor(0)
 
@@ -142,6 +158,7 @@ class Trainer:
                 n_layer = teacher_outputs.hidden_states.size(0)
                 span_weights = teacher_outputs.span_weights.squeeze(-1)
                 _, B, N = span_weights.size()
+                projectors = self.student.proj_hidden_layers
 
                 mask = span_weights[-1].bool()  # [B, N]
 
@@ -156,8 +173,8 @@ class Trainer:
                 
                 span_weights = span_weights.unsqueeze(-1)
                 if self.args.span_loss:
-                    for i in range(n_layer):
-                        s_hidden = student_outputs.hidden_states[i]
+                    for i in range(n_layer - 1, n_layer):
+                        s_hidden = projectors[i](student_outputs.hidden_states[i])
                         t_didden = teacher_outputs.hidden_states[i]
                         span_w = span_weights[i]
 
@@ -169,7 +186,7 @@ class Trainer:
                             print('span_loss nan')
                 
 
-                kd_loss += 1 * span_loss
+                kd_loss += 1.0 * span_loss
 
                 s_hidden = F.normalize(student_outputs.embeddings, dim=-1, eps=1e-5)
                 t_hidden = F.normalize(teacher_outputs.hidden_states[n_layer - 1], dim=-1, eps=1e-5)
@@ -189,10 +206,28 @@ class Trainer:
                 t_map_logits = t_logits[:, :, self.t_id_mapping]
                 kd_loss += self.soft_label_distill_loss(s_map_logits, t_map_logits, self.temperature)
 
+                input_texts = self.student_tokenizer.batch_decode(s_inputs['input_ids'], skip_special_tokens=False)
+
+                spans_offsets, words_offsets = get_spans_offsets(input_texts, self.nlp, self.matcher)
+
+                span_loss = compute_overall_span_loss(projectors, 
+                                                      s_inputs['attention_mask'], t_inputs['attention_mask'],
+                                                      s_logits, t_logits, 
+                                                      student_outputs.token_hidden_states, 
+                                                      teacher_outputs.token_hidden_states, 
+                                                      s_offsets_mapping, t_offsets_mapping, 
+                                                      spans_offsets, words_offsets, self.args)
+                
+                span_loss = self.args.w_span_loss * span_loss
+
         return kd_loss, temp_loss.item()
 
     
-    def compute_loss(self, student_inputs, labels, teacher_outputs = None):
+    def compute_loss(self, student_inputs, labels, teacher_inputs = None):
+        t_offset_mapping = teacher_inputs.pop('offset_mapping', None)
+        teacher_outputs = self.get_teacher_eval(teacher_inputs)
+        
+        s_offset_mapping = student_inputs.pop('offset_mapping', None)
         student_outputs = self.student.decode(student_inputs)
         
         hard_loss = self.student_loss_function(student_outputs.logits, 
@@ -201,7 +236,9 @@ class Trainer:
         kd_loss, _t_loss_= 0, 0
 
         if self.args.knowledge_distillation and teacher_outputs is not None:
-            kd_loss, _t_loss_ = self.knowledge_distillation_loss(student_outputs, teacher_outputs)
+            kd_loss, _t_loss_ = self.knowledge_distillation_loss(student_outputs, teacher_outputs, 
+                                                                 student_inputs, teacher_inputs, 
+                                                                 s_offset_mapping, t_offset_mapping)
 
         loss = self.alpha * hard_loss + (1.0 - self.alpha) * kd_loss
 
@@ -218,7 +255,6 @@ def train(args: Arguments, trainer: Trainer, evaluator: Evaluator, grad_accum_st
 
     optimizer = optim.AdamW(trainer.student.model.parameters(), lr=args.learning_rate)
     optimizer.add_param_group({"params": trainer.student.proj_hidden_layers.parameters(), "lr": 5e-4, "weight_decay": 0.0})
-    optimizer.add_param_group({"params": [trainer.student.proj_embeddings], "lr": 5e-4, "weight_decay": 0.0})
 
     num_steps = len(train_loader) // grad_accum_steps + 1
     total_traning_steps = num_steps * args.num_train_epochs
@@ -247,11 +283,9 @@ def train(args: Arguments, trainer: Trainer, evaluator: Evaluator, grad_accum_st
         for batch in p_bar:
             student_inputs, teacher_inputs, labels = batch
 
-            teacher_outputs = trainer.get_teacher_eval(teacher_inputs)
-
             labels = labels.to(trainer.student.device)
             with autocast():
-                loss, student_loss = trainer.compute_loss(student_inputs, labels, teacher_outputs)
+                loss, student_loss = trainer.compute_loss(student_inputs, labels, teacher_inputs)
 
             scaler.scale(loss / grad_accum_steps).backward()
 

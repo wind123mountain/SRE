@@ -21,6 +21,7 @@ class StudentOutput(ModelOutput):
     embeddings: Optional[Tensor] = None
     hidden_states: Any = None
     span_weights: Any = None
+    token_hidden_states: Any = None
 
 
 class LLMModel(torch.nn.Module):
@@ -109,7 +110,7 @@ class LLMModel(torch.nn.Module):
 
         span_weights = None
         if safe_idx is not None and hidden_states is not None:
-            hidden_states, span_weights = self.get_span_hidden_states(inputs, hidden_states, 
+            span_hidden_states, span_weights = self.get_span_hidden_states(inputs, hidden_states, 
                                                                       attentions, safe_idx, 
                                                                       pooler_mask, inputs['attention_mask'],
                                                                       self.hidden_layer_fineturn,
@@ -120,8 +121,9 @@ class LLMModel(torch.nn.Module):
 
         return StudentOutput(
             logits=outputs.logits,
-            hidden_states=hidden_states,
-            span_weights=span_weights
+            hidden_states=span_hidden_states,
+            span_weights=span_weights,
+            token_hidden_states = hidden_states
         )
 
     def save(self, output_dir: str):
@@ -152,31 +154,17 @@ class StudentCausalModel(torch.nn.Module):
         if teacher_hidden_size > 0:
             proj_list = []
             for i in range(len(self.model.hidden_layer_fineturn)):
-                W = nn.Parameter(torch.empty(self.model.model.config.hidden_size, teacher_hidden_size))
+                proj = nn.Linear(self.model.model.config.hidden_size, teacher_hidden_size)
+                
                 if orthogonal:
-                    nn.init.orthogonal_(W)
+                    nn.init.orthogonal_(proj.weight)
                 else:
-                    nn.init.xavier_uniform_(W)
-                proj_list.append(W)
+                    nn.init.xavier_uniform_(proj.weight)
+                    
+                proj_list.append(proj)
             
-            self.proj_hidden_layers = nn.ParameterList(proj_list)
-
-            self.proj_embeddings = nn.Parameter(torch.empty(self.model.get_config().hidden_size, teacher_hidden_size))
-            if orthogonal:
-                nn.init.orthogonal_(self.proj_embeddings)
-            else:
-                nn.init.xavier_uniform_(self.proj_embeddings)
-
-            hidden_weight_path = os.path.join(model_path, 'proj_hidden_layers.pt')
-            if os.path.exists(hidden_weight_path):
-                self.proj_hidden_layers = torch.load(hidden_weight_path, weights_only=False)
-            
-            if os.path.exists(os.path.join(model_path, 'proj_embeddings.pt')):
-                self.proj_embeddings = torch.load(os.path.join(model_path, 'proj_embeddings.pt'),
-                                                  weights_only=False)
-
-            self.proj_hidden_layers.to(self.device)
-            self.proj_embeddings = nn.Parameter(self.proj_embeddings.to(self.device))
+            self.proj_hidden_layers = nn.ModuleList(proj_list)
+         
 
     def decode(self, inputs) -> StudentOutput:
         inputs = {key: value.to(self.device) for key, value in inputs.items()}
@@ -186,10 +174,10 @@ class StudentCausalModel(torch.nn.Module):
         if outputs.hidden_states is not None and self.proj_hidden_layers is not None:
             hidden_states = []
             outputs.embeddings = outputs.hidden_states[-1]
-            for i, proj_layer in enumerate(self.proj_hidden_layers):
-                hidden_states.append(outputs.hidden_states[i] @ proj_layer)
+            # for i, proj_layer in enumerate(self.proj_hidden_layers):
+            #     hidden_states.append(outputs.hidden_states[i] @ proj_layer)
                 
-            outputs.hidden_states = hidden_states
+            # outputs.hidden_states = hidden_states
 
         return outputs
 
@@ -197,6 +185,3 @@ class StudentCausalModel(torch.nn.Module):
         self.model.save(path)
         if self.proj_hidden_layers is not None:
             torch.save(self.proj_hidden_layers, os.path.join(path, 'proj_hidden_layers.pt'))
-
-        if self.proj_embeddings is not None:
-            torch.save(self.proj_embeddings, os.path.join(path, 'proj_embeddings.pt'))

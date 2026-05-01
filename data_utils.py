@@ -204,7 +204,7 @@ class LLMDataCollator:
         if not self.do_train:
             return student_inputs, None, labels
 
-        student_token_offset_mapping = student_inputs.pop('offset_mapping', None)
+        student_token_offset_mapping = student_inputs.get('offset_mapping', None)
 
         teacher_inputs = self.teacher_tokenizer(
             fulls,
@@ -225,7 +225,7 @@ class LLMDataCollator:
         # teacher_prompt_lengths = teacher_prompts["attention_mask"].sum(dim=1)
         teacher_prompt_lengths = torch.tensor(teacher_prompt_lengths)
 
-        teacher_token_offset_mapping = teacher_inputs.pop('offset_mapping', None)
+        teacher_token_offset_mapping = teacher_inputs.get('offset_mapping', None)
 
         if student_token_offset_mapping is not None and teacher_token_offset_mapping is not None:
             student_pooler_tensor, teacher_pooler_tensor = prepare_pooler_v2(prompt_lengths,

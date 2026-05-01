@@ -37,10 +37,14 @@ OPTS+=" --span_weight_pooling True"
 OPTS+=" --span_loss_weight True"
 OPTS+=" --p 1.0"
 
-OPTS+=" --teacher_layers_mapping 28"
-OPTS+=" --student_encoder_layers_finetuned 48"
 OPTS+=" --n_encoder_finetuned 48"
 OPTS+=" --hidden_loss_weights 1"
+
+OPTS+=" --entropy_weight True"
+OPTS+=" --student_layers_mapping 42 48"
+OPTS+=" --teacher_layers_mapping 25 28"
+OPTS+=" --split_layer_mapping 0 1 2"
+OPTS+=" --w_span_loss 2.0"
 
 
 # models

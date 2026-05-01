@@ -51,8 +51,7 @@ class Arguments:
     geom_loss_weight: float = field(default=50)
     hard_label_loss_weight: float = field(default=1.0)
 
-    teacher_layers_mapping: List[int] = field(default=list)
-    student_encoder_layers_finetuned: List[int] = field(default=list)
+    
     n_encoder_finetuned: int = field(default=6)
     finetune_embedding: bool = field(default=False)
 
@@ -78,10 +77,20 @@ class Arguments:
 
     load_student_tokenizer_kwargs: dict = field(default_factory=dict)
     load_teacher_tokenizer_kwargs: dict = field(default_factory=dict)
+    entropy_weight: bool = field(default=False)
+    student_layer_mapping: List[int] = field(default=list)
+    teacher_layers_mapping: List[int] = field(default=list)
+    student_encoder_layers_finetuned: List[int] = field(default=list)
+    split_layer_mapping: List[int] = field(default=list)
+    w_span_loss: float = field(default=2.0)
+    
+
 
     def __post_init__(self):
         if not os.path.exists(self.train_data):
             raise FileNotFoundError(f"cannot find file: {self.train_data}, please set a true path")
+        
+        self.student_encoder_layers_finetuned = self.student_layer_mapping
             
         if len(self.teacher_layers_mapping) != len(self.student_encoder_layers_finetuned):
             raise ValueError("teacher_layers_mapping and student_encoder_layers_finetuned should have the same length")
