@@ -42,7 +42,7 @@ class LLMModel(torch.nn.Module):
             self.get_span_hidden_states = get_span_hidden_states_custom
 
         config = AutoConfig.from_pretrained(model_name, trust_remote_code=True)
-        config.output_hidden_states = load_model_kwargs.pop('output_hidden_states', False)
+        config.output_hidden_states = False
         config.output_attentions = load_model_kwargs.pop('output_attentions', False)
         load_model_kwargs['config'] = config
         
@@ -88,6 +88,7 @@ class LLMModel(torch.nn.Module):
         pooler_mask = inputs.pop('pooler_mask', None)
 
         self.saved_hidden_states.clear()
+        self.saved_hidden_states.append(None)
 
         outputs = self.model(**inputs, output_attentions=True, return_dict=True, use_cache=False)
 

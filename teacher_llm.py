@@ -116,6 +116,7 @@ class TeacherMistral7B(Teacher):
 
         hidden_states = outputs.hidden_states
         attentions = outputs.attentions
+        print(attentions)
         if attentions is None:
             attentions = torch.ones((self.model.config.num_hidden_layers,
                                      inputs['input_ids'].size(0),

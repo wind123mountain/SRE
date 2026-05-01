@@ -67,7 +67,7 @@ OPTS+=" --span_weight_pooling True"
 OPTS+=" --span_loss_weight True"
 OPTS+=" --p 1.0"
 
-OPTS+=" --teacher_layers_mapping 32"
+OPTS+=" --teacher_layer_mapping 32"
 OPTS+=" --student_encoder_layers_finetuned 22"
 OPTS+=" --n_encoder_finetuned 22"
 OPTS+=" --hidden_loss_weights 1"

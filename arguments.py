@@ -57,6 +57,7 @@ class Arguments:
 
     orthogonal: bool = field(default=True)
     span_loss: bool = field(default=True)
+    der_loss: bool = field(default=False)
 
     span_weight_pooling: bool = field(default=True)
     span_loss_weight: bool = field(default=True)
@@ -79,7 +80,7 @@ class Arguments:
     load_teacher_tokenizer_kwargs: dict = field(default_factory=dict)
     entropy_weight: bool = field(default=False)
     student_layer_mapping: List[int] = field(default=list)
-    teacher_layers_mapping: List[int] = field(default=list)
+    teacher_layer_mapping: List[int] = field(default=list)
     student_encoder_layers_finetuned: List[int] = field(default=list)
     split_layer_mapping: List[int] = field(default=list)
     w_span_loss: float = field(default=2.0)
@@ -92,6 +93,6 @@ class Arguments:
         
         self.student_encoder_layers_finetuned = self.student_layer_mapping
             
-        if len(self.teacher_layers_mapping) != len(self.student_encoder_layers_finetuned):
-            raise ValueError("teacher_layers_mapping and student_encoder_layers_finetuned should have the same length")
+        if len(self.teacher_layer_mapping) != len(self.student_encoder_layers_finetuned):
+            raise ValueError("teacher_layer_mapping and student_encoder_layers_finetuned should have the same length")
 

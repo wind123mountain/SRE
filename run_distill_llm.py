@@ -62,21 +62,20 @@ def main():
                         'quantization_config': None,
                         'device_map': args.teach_device,
                         'trust_remote_code': True,
-                        'output_hidden_states': args.finetune_hidden_states,
+                        'output_hidden_states': False,
                         'output_attentions': args.output_attentions,
                         'attn_implementation': 'sdpa',
                         'token' : args.hf_token}
     
     teacher_model = TeacherLLM(model_name = args.teacher_model, 
-                                        load_model_kwargs = load_model_kwargs,
-                                        export_hidden_state_layers=args.teacher_layers_mapping,
-                                        weight_pooling=args.span_weight_pooling, 
-                                        span_weight=args.span_loss_weight, 
-                                        sft_path=extras.teacher_sft)
+                               load_model_kwargs = load_model_kwargs,
+                               export_hidden_state_layers=args.teacher_layer_mapping,
+                               weight_pooling=args.span_weight_pooling, 
+                               span_weight=args.span_loss_weight, 
+                               sft_path=extras.teacher_sft)
 
 
     load_student_model_kwargs = {'device_map': args.student_device,
-                                 'output_hidden_states': args.finetune_hidden_states,
                                  'output_attentions': args.output_attentions,
                                  "torch_dtype": torch.bfloat16,
                                  'attn_implementation': 'eager' if args.output_attentions else 'sdpa'}
