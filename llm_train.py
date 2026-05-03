@@ -206,7 +206,7 @@ class Trainer:
                 t_map_logits = t_logits[:, :, self.t_id_mapping]
                 kd_loss += self.soft_label_distill_loss(s_map_logits, t_map_logits, self.temperature)
 
-                input_texts = self.student_tokenizer.batch_decode(s_inputs['input_ids'], skip_special_tokens=False)
+                input_texts = self.student_tokenizer.batch_decode(s_inputs['input_ids'], skip_special_tokens=True)
 
                 spans_offsets, words_offsets = get_spans_offsets(input_texts, self.nlp, self.matcher)
 
