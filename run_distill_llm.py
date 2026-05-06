@@ -64,7 +64,7 @@ def main():
                         'trust_remote_code': True,
                         'output_hidden_states': args.finetune_hidden_states,
                         'output_attentions': args.output_attentions,
-                        'attn_implementation': 'sdpa',
+                        'attn_implementation': 'eager' if args.output_attentions else 'sdpa',
                         'token' : args.hf_token}
     
     teacher_model = TeacherLLM(model_name = args.teacher_model, 

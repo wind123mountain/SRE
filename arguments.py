@@ -58,6 +58,7 @@ class Arguments:
 
     orthogonal: bool = field(default=True)
     span_loss: bool = field(default=True)
+    der_loss: bool = field(default=True)
 
     span_weight_pooling: bool = field(default=True)
     span_loss_weight: bool = field(default=True)

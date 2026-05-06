@@ -18,21 +18,21 @@ OPTS+=" --test_data ${BASE_PATH}/data/llm/vicuna/valid.jsonl"
 
 # training
 OPTS+=" --num_train_epochs 15"
-OPTS+=" --batch_size 4"
+OPTS+=" --batch_size 16"
 OPTS+=" --val_batch_size 32"
 OPTS+=" --learning_rate 1e-3"
 OPTS+=" --max_len 320"
 OPTS+=" --pad_to_multiple_of 1"
 
 # devices
-OPTS+=" --teach_device auto"
-OPTS+=" --student_device auto"
+OPTS+=" --teach_device cuda:2"
+OPTS+=" --student_device cuda:2"
 
 # loss
 OPTS+=" --hard_label_loss_weight 0.5"
-OPTS+=" --orthogonal True"
+OPTS+=" --orthogonal False"
 OPTS+=" --span_loss True"
-OPTS+=" --der_loss False"
+OPTS+=" --der_loss True"
 OPTS+=" --span_weight_pooling True"
 OPTS+=" --span_loss_weight True"
 OPTS+=" --p 1.0"

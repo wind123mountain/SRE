@@ -2,7 +2,7 @@ from arguments import Arguments
 from teacher_llm import Teacher, TeacherOutput
 from student import StudentCausalModel, StudentOutput
 from data_utils import LLMDataset, LLMDataCollator
-from loss import cosine_token_weight_loss
+from loss import cosine_token_weight_loss, derivative_loss
 
 from transformers import AutoTokenizer
 from torch import nn
@@ -167,6 +167,13 @@ class Trainer:
 
                         if torch.isnan(span_loss):
                             print('span_loss nan')
+                if self.args.der_loss:
+                    der_loss = derivative_loss(student_outputs.hidden_states,
+                                            teacher_outputs.hidden_states,
+                                            teacher_outputs.span_weights) / (n_layer - 1)
+
+                    if torch.isnan(der_loss):
+                        print('der_loss nan')
                 
 
                 kd_loss += 1 * span_loss
@@ -279,11 +286,28 @@ def train(args: Arguments, trainer: Trainer, evaluator: Evaluator, grad_accum_st
         with torch.cuda.amp.autocast(dtype=torch.float16):
             evaluator.model = trainer.student.model.model
             dolly = evaluator.evaluate_benchmark_dataset(
-                dataset_path=args.val_data,
+                dataset_path='data/dolly/valid.jsonl',
                 dataset_name='dolly', batch_size=16,
                 max_seq_length=256, max_new_tokens=512)
-        if dolly > best_result:
-            best_result = dolly
+            vicuna = evaluator.evaluate_benchmark_dataset(
+                dataset_path='data/vicuna/valid.jsonl',
+                dataset_name='vicuna', batch_size=16,
+                max_seq_length=256, max_new_tokens=512)
+            selfinst = evaluator.evaluate_benchmark_dataset(
+                dataset_path='data/self-inst/valid.jsonl',
+                dataset_name='selfinst', batch_size=16,
+                max_seq_length=256, max_new_tokens=512)
+            sinst = evaluator.evaluate_benchmark_dataset(
+                dataset_path='data/sinst/valid.jsonl',
+                dataset_name='sinst', batch_size=16,
+                max_seq_length=256, max_new_tokens=512)
+            dialog = evaluator.evaluate_benchmark_dataset(
+                dataset_path='data/dialog/valid.jsonl',
+                dataset_name='dialog', batch_size=16,
+                max_seq_length=256, max_new_tokens=512)
+        score_avg = (dolly + vicuna + selfinst + sinst + dialog) / 5
+        if score_avg > best_result:
+            best_result = score_avg
             trainer.student.save(args.output_dir)
             
         trainer.student.save(args.output_dir + f'-epoch{epoch}')

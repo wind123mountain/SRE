@@ -23,5 +23,18 @@ def cosine_loss(student_embeddings, teacher_embeddings):
     cos_sim_loss = 1 - cos_sim
     return cos_sim_loss.mean()
 
+def derivative_loss(student_hidden_states, teacher_hidden_states, weights):
+    loss = 0
+    mask_fill = None
 
-        
+    for i in range(len(student_hidden_states) - 1):
+        delta_hidden_student = student_hidden_states[i + 1] - student_hidden_states[i]
+        delta_hidden_teacher = teacher_hidden_states[i + 1] - teacher_hidden_states[i]
+
+        cos_sim = F.cosine_similarity(delta_hidden_student, delta_hidden_teacher, dim=-1, eps=1e-5)
+        cos_sim_loss = 1 - cos_sim
+        cos_sim_loss = cos_sim_loss * weights[i + 1].squeeze()
+
+        loss += cos_sim_loss.sum(-1).mean()
+
+    return loss

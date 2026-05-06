@@ -25,14 +25,14 @@ OPTS+=" --max_len 320"
 OPTS+=" --pad_to_multiple_of 1"
 
 # devices
-OPTS+=" --teach_device auto"
-OPTS+=" --student_device auto"
+OPTS+=" --teach_device cuda:1"
+OPTS+=" --student_device cuda:1"
 
 # loss
 OPTS+=" --hard_label_loss_weight 0.5"
-OPTS+=" --orthogonal True"
+OPTS+=" --orthogonal False"
 OPTS+=" --span_loss True"
-OPTS+=" --der_loss False"
+OPTS+=" --der_loss True"
 OPTS+=" --span_weight_pooling True"
 OPTS+=" --span_loss_weight True"
 OPTS+=" --p 1.0"
