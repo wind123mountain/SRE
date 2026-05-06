@@ -87,6 +87,7 @@ class LLMModel(torch.nn.Module):
         pooler_mask = inputs.pop('pooler_mask', None)
 
         self.saved_hidden_states.clear()
+        self.saved_hidden_states.append(None)
 
         outputs = self.model(**inputs, output_attentions=True, return_dict=True, use_cache=False)
 
