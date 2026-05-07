@@ -2,7 +2,7 @@ from arguments import Arguments
 from teacher_llm import Teacher, TeacherOutput
 from student import StudentCausalModel, StudentOutput
 from data_utils import LLMDataset, LLMDataCollator
-from loss import cosine_token_weight_loss
+from loss import cosine_token_weight_loss, derivative_loss
 
 from transformers import AutoTokenizer
 from torch import nn
@@ -14,9 +14,7 @@ from torch.cuda.amp import autocast, GradScaler
 from tqdm import tqdm
 from transformers import get_scheduler
 from evaluator import Evaluator
-from span_utils import compute_overall_span_loss, get_spans_offsets
-import spacy
-from spacy.matcher import Matcher
+
 
 
 def load_tokenizer(model_type, path, kwargs):        
@@ -92,16 +90,6 @@ class Trainer:
                                                                  self.teacher_tokenizer, 
                                                                  device=self.student.device)
         
-        self.nlp = spacy.load("en_core_web_sm")
-        self.matcher = Matcher(self.nlp.vocab)
-        VERB_PHRASE_PATTERN = [
-            {"POS": "AUX", "OP": "*"},
-            {"POS": "ADV", "OP": "*"},
-            {"POS": "VERB", "OP": "+"},
-            {"POS": "ADV", "OP": "*"},
-        ]
-
-        self.matcher.add("VERB_PHRASE", [VERB_PHRASE_PATTERN])
 
     def get_data_loader(self, args: Arguments, student_model_type: str, teacher_model_type: str):
         self.student_tokenizer = load_tokenizer(student_model_type, args.student_tokenizer, 
@@ -155,6 +143,7 @@ class Trainer:
         if teacher_outputs is not None:
             if teacher_outputs.hidden_states is not None:
                 span_loss = 0
+                der_loss = 0
                 n_layer = teacher_outputs.hidden_states.size(0)
                 span_weights = teacher_outputs.span_weights.squeeze(-1)
                 _, B, N = span_weights.size()
@@ -184,9 +173,17 @@ class Trainer:
 
                         if torch.isnan(span_loss):
                             print('span_loss nan')
-                
+                if self.args.der_loss:
+                    der_loss = derivative_loss(student_outputs.hidden_states,
+                                            teacher_outputs.hidden_states,
+                                            teacher_outputs.span_weights) / (n_layer - 1)
+
+                    if torch.isnan(der_loss):
+                        print('der_loss nan')
 
                 kd_loss += 1.0 * span_loss
+                kd_loss += 1.0 * der_loss
+
 
                 s_hidden = F.normalize(student_outputs.embeddings, dim=-1, eps=1e-5)
                 t_hidden = F.normalize(teacher_outputs.hidden_states[n_layer - 1], dim=-1, eps=1e-5)
@@ -205,20 +202,6 @@ class Trainer:
                 s_map_logits = s_logits[:, :, self.s_id_mapping]
                 t_map_logits = t_logits[:, :, self.t_id_mapping]
                 kd_loss += self.soft_label_distill_loss(s_map_logits, t_map_logits, self.temperature)
-
-                input_texts = self.student_tokenizer.batch_decode(s_inputs['input_ids'], skip_special_tokens=True)
-
-                spans_offsets, words_offsets = get_spans_offsets(input_texts, self.nlp, self.matcher)
-
-                span_loss = compute_overall_span_loss(projectors, 
-                                                      s_inputs['attention_mask'], t_inputs['attention_mask'],
-                                                      s_logits, t_logits, 
-                                                      student_outputs.token_hidden_states, 
-                                                      teacher_outputs.token_hidden_states, 
-                                                      s_offsets_mapping, t_offsets_mapping, 
-                                                      spans_offsets, words_offsets, self.args)
-                
-                span_loss = self.args.w_span_loss * span_loss
 
         return kd_loss, temp_loss.item()
 

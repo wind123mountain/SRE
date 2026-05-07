@@ -4,7 +4,7 @@ SEED=$1
 
 BASE_PATH=.
 OUTPUT_DIR="${BASE_PATH}/outputs/gpt2_1_5B/seed-${SEED}"
-CKPT_NAME="mistral-tiny-llama-checkpoint"
+CKPT_NAME="qwen-2-5-gpt2-1-5B-checkpoint"
 
 mkdir -p ${OUTPUT_DIR}
 
@@ -17,21 +17,21 @@ OPTS+=" --test_data ${BASE_PATH}/data/vicuna/valid.jsonl"
 
 # training
 OPTS+=" --num_train_epochs 15"
-OPTS+=" --batch_size 4"
+OPTS+=" --batch_size 16"
 OPTS+=" --val_batch_size 32"
 OPTS+=" --learning_rate 5e-4"
 OPTS+=" --max_len 320"
 OPTS+=" --pad_to_multiple_of 1"
 
 # devices
-OPTS+=" --teach_device cuda:0"
-OPTS+=" --student_device cuda:0"
+OPTS+=" --teach_device cuda:1"
+OPTS+=" --student_device cuda:1"
 
 # loss
 OPTS+=" --hard_label_loss_weight 0.5"
-OPTS+=" --orthogonal True"
+OPTS+=" --orthogonal False"
 OPTS+=" --span_loss True"
-OPTS+=" --der_loss False"
+OPTS+=" --der_loss True"
 OPTS+=" --span_weight_pooling True"
 OPTS+=" --span_loss_weight True"
 OPTS+=" --p 1.0"
@@ -55,7 +55,7 @@ OPTS+=" --student_model openai-community/gpt2-xl"
 OPTS+=" --student_tokenizer openai-community/gpt2-xl"
 
 # hf token
-OPTS+=" --hf_token <hf_token>"
+OPTS+=" --hf_token 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"
 
 # extra arguments
 OPTS+=" --seed ${SEED}"
