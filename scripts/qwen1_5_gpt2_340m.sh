@@ -12,9 +12,9 @@ mkdir -p ${OUTPUT_DIR}
 # Gom tham số vào OPTS
 OPTS=""
 # data
-OPTS+=" --train_data ${BASE_PATH}/llm_data/dolly/train.jsonl"
-OPTS+=" --val_data ${BASE_PATH}/llm_data/dolly/valid.jsonl"
-OPTS+=" --test_data ${BASE_PATH}/llm_data/vicuna/valid.jsonl"
+OPTS+=" --train_data ${BASE_PATH}/data/dolly/train.jsonl"
+OPTS+=" --val_data ${BASE_PATH}/data/dolly/valid.jsonl"
+OPTS+=" --test_data ${BASE_PATH}/data/vicuna/valid.jsonl"
 
 # training
 OPTS+=" --num_train_epochs 10"
