@@ -297,7 +297,7 @@ def train(args: Arguments, trainer: Trainer, evaluator: Evaluator, grad_accum_st
             evaluator.model = trainer.student.model.model
             dolly = evaluator.evaluate_benchmark_dataset(
                 dataset_path=args.val_data,
-                dataset_name='dolly', batch_size=32,
+                dataset_name='dolly', batch_size=64,
                 max_seq_length=256, max_new_tokens=512)
         if dolly > best_result:
             best_result = dolly
