@@ -196,12 +196,12 @@ class Trainer:
                 kd_loss += self.args.geom_loss_weight * score_loss
 
 
-                s_logits = self.student.model.model.lm_head(student_outputs.embeddings)
-                t_logits = self.teacher_lm_head(teacher_outputs.hidden_states[n_layer - 1])
+                # s_logits = self.student.model.model.lm_head(student_outputs.embeddings)
+                # t_logits = self.teacher_lm_head(teacher_outputs.hidden_states[n_layer - 1])
                 
-                s_map_logits = s_logits[:, :, self.s_id_mapping]
-                t_map_logits = t_logits[:, :, self.t_id_mapping]
-                kd_loss += self.soft_label_distill_loss(s_map_logits, t_map_logits, self.temperature)
+                # s_map_logits = s_logits[:, :, self.s_id_mapping]
+                # t_map_logits = t_logits[:, :, self.t_id_mapping]
+                # kd_loss += self.soft_label_distill_loss(s_map_logits, t_map_logits, self.temperature)
 
         return kd_loss, temp_loss.item()
 

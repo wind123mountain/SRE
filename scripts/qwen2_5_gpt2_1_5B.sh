@@ -16,7 +16,7 @@ OPTS+=" --val_data ${BASE_PATH}/data/dolly/valid.jsonl"
 OPTS+=" --test_data ${BASE_PATH}/data/vicuna/valid.jsonl"
 
 # training
-OPTS+=" --num_train_epochs 15"
+OPTS+=" --num_train_epochs 10"
 OPTS+=" --batch_size 16"
 OPTS+=" --val_batch_size 32"
 OPTS+=" --learning_rate 5e-4"
