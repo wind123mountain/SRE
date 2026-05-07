@@ -5,7 +5,7 @@ SEED=$1
 # ==== Định nghĩa các biến ====
 BASE_PATH=.
 HARD_LABEL_LOSS_WEIGHT=0.5
-TEMPERATURE=2.0
+TEMPERATURE=3.0
 LR=1e-4
 OUTPUT_DIR="${BASE_PATH}/outputs/tiny_llama/seed-${SEED}-hlw-${HARD_LABEL_LOSS_WEIGHT}-temp-${TEMPERATURE}-lr-${LR}"
 CKPT_NAME="mistral-tiny-llama-checkpoint"
