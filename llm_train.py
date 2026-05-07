@@ -267,7 +267,7 @@ def train(args: Arguments, trainer: Trainer, evaluator: Evaluator, grad_accum_st
             student_inputs, teacher_inputs, labels = batch
 
             labels = labels.to(trainer.student.device)
-            with autocast():
+            with autocast(dtype=torch.bfloat16):
                 loss, student_loss = trainer.compute_loss(student_inputs, labels, teacher_inputs)
 
             scaler.scale(loss / grad_accum_steps).backward()
@@ -293,11 +293,11 @@ def train(args: Arguments, trainer: Trainer, evaluator: Evaluator, grad_accum_st
             if torch.isnan(loss):
                 break
 
-        with torch.cuda.amp.autocast(dtype=torch.float16):
+        with torch.cuda.amp.autocast(dtype=torch.bfloat16):
             evaluator.model = trainer.student.model.model
             dolly = evaluator.evaluate_benchmark_dataset(
                 dataset_path=args.val_data,
-                dataset_name='dolly', batch_size=16,
+                dataset_name='dolly', batch_size=32,
                 max_seq_length=256, max_new_tokens=512)
         if dolly > best_result:
             best_result = dolly
