@@ -113,7 +113,7 @@ class TeacherMistral7B(Teacher):
         pooler_mask = inputs.pop('pooler_mask', None)
 
         with torch.no_grad():
-          outputs = self.model(**inputs)
+          outputs = self.model(**inputs, use_cache = False)
 
         hidden_states = outputs.hidden_states
         attentions = outputs.attentions
