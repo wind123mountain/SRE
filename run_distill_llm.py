@@ -80,7 +80,7 @@ def main():
                                  "torch_dtype": torch.bfloat16,
                                  'attn_implementation': 'eager' if args.output_attentions else 'sdpa'}
 
-    lora_config = {'lora_rank': 16, 'lora_alpha': 64,
+    lora_config = {'lora_rank': 32, 'lora_alpha': 64,
                    'lora_dropout': 0.1, 'lora_target_modules':["q_proj", "v_proj", "k_proj"]}
     if extras.student_model_type == 'gpt2':
         lora_config = {'lora_rank': 16, 'lora_alpha': 64,
