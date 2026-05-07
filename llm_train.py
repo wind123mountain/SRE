@@ -3,7 +3,7 @@ from teacher_llm import Teacher, TeacherOutput
 from student import StudentCausalModel, StudentOutput
 from data_utils import LLMDataset, LLMDataCollator
 from loss import cosine_token_weight_loss, derivative_loss
-
+import math
 from transformers import AutoTokenizer
 from torch import nn
 import torch.nn.functional as F
@@ -241,8 +241,8 @@ class Trainer:
         t_index_embeds = t_index_embeds / t_index_embeds.std().clamp(min=1e-5)
 
         # Hidden states
-        s_hidden = student_outputs.embeddings
-        t_hidden = teacher_outputs.hidden_states[-1]
+        s_hidden = student_outputs.last_hidden_state
+        t_hidden = teacher_outputs.last_hidden_state
 
         s_hidden = s_hidden[:, :s_mask.size(1), :]
         t_hidden = t_hidden[:, :t_mask.size(1), :]
@@ -265,7 +265,7 @@ class Trainer:
         t2s_weight = torch.softmax(align, dim=-1)
 
         t_value_for_student = self.dskd_value_projector_t2s(
-            t_hidden_norm + t_target_embeds
+            t_target_embeds + t_hidden_norm
         ).float()
 
         t2s_hidden = torch.matmul(t2s_weight, t_value_for_student)
@@ -282,6 +282,7 @@ class Trainer:
         # S2T: student -> teacher
         # ======================
         s2t_weight = torch.softmax(align.transpose(-1, -2), dim=-1)
+        # print("s_hidden shape: ", s_hidden.shape)
 
         s_value_for_teacher = self.dskd_value_projector_s2t(s_hidden).float()
         s2t_hidden = torch.matmul(s2t_weight, s_value_for_teacher)
@@ -358,6 +359,16 @@ class Trainer:
 
                 kd_loss += 1.0 * span_loss
                 kd_loss += 0.5 * der_loss
+                dskd_loss = self.dskd_with_cma(
+                    student_outputs=student_outputs,
+                    teacher_outputs=teacher_outputs,
+                    student_inputs=s_inputs,
+                    teacher_inputs=t_inputs,
+                    labels=labels,
+                    temperature=self.temperature,
+                )
+                kd_loss += 1.0 * dskd_loss
+                
 
 
                 s_hidden = F.normalize(student_outputs.embeddings, dim=-1, eps=1e-5)
@@ -419,7 +430,37 @@ def train(args: Arguments, trainer: Trainer, evaluator: Evaluator, grad_accum_st
 
     optimizer = optim.AdamW(trainer.student.model.parameters(), lr=args.learning_rate)
     optimizer.add_param_group({"params": trainer.student.proj_hidden_layers.parameters(), "lr": 1e-3, "weight_decay": 0.0})
+    optimizer = optim.AdamW(
+        trainer.student.model.parameters(),
+        lr=args.learning_rate
+    )
 
+    # hidden projectors
+    optimizer.add_param_group({
+        "params": trainer.student.proj_hidden_layers.parameters(),
+        "lr": 1e-3,
+        "weight_decay": 0.0
+    })
+
+    # ===== DSKD projectors =====
+
+    optimizer.add_param_group({
+        "params": trainer.dskd_index_projector_s2t.parameters(),
+        "lr": 1e-3,
+        "weight_decay": 0.0
+    })
+
+    optimizer.add_param_group({
+        "params": trainer.dskd_value_projector_t2s.parameters(),
+        "lr": 1e-3,
+        "weight_decay": 0.0
+    })
+
+    optimizer.add_param_group({
+        "params": trainer.dskd_value_projector_s2t.parameters(),
+        "lr": 1e-3,
+        "weight_decay": 0.0
+    })
     num_steps = len(train_loader) // grad_accum_steps + 1
     total_traning_steps = num_steps * args.num_train_epochs
 
