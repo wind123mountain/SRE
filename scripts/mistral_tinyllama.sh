@@ -41,8 +41,8 @@ OPTS+=" --n_encoder_finetuned 22"
 OPTS+=" --hidden_loss_weights 1"
 
 OPTS+=" --entropy_weight True"
-OPTS+=" --student_layer_mapping 25 28"
-OPTS+=" --teacher_layer_mapping 29 32"
+OPTS+=" --student_layer_mapping 21 22"
+OPTS+=" --teacher_layer_mapping 31 32"
 OPTS+=" --split_layer_mapping 0 1 2"
 OPTS+=" --w_span_loss 2.0"
 
