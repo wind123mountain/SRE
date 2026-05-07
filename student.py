@@ -168,6 +168,7 @@ class StudentCausalModel(torch.nn.Module):
                 proj_list.append(proj)
             
             self.proj_hidden_layers = nn.ModuleList(proj_list)
+            self.proj_hidden_layers.to(self.device)
          
 
     def decode(self, inputs) -> StudentOutput:
