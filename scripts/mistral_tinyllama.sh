@@ -55,7 +55,7 @@ OPTS+=" --student_model TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T"
 OPTS+=" --student_tokenizer TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T"
 
 # hf token
-OPTS+=" --hf_token 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"
+# OPTS+=" --hf_token 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"
 
 # extra arguments
 OPTS+=" --seed ${SEED}"

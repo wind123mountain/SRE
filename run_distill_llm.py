@@ -48,7 +48,7 @@ def main():
 
     set_seed(extras.seed)
 
-    login(args.hf_token)
+    # login(args.hf_token)
 
     if extras.teacher_model_type == 'qwen':
         TeacherLLM = TeacherQwen
@@ -118,11 +118,11 @@ def main():
         seeds=[10, 20, 30, 40, 50]
     )
 
-    # benchmark_configs = {'dolly': './data/dolly/valid.jsonl',
-    #                     'self_instruct': './data/self-inst/valid.jsonl',
-    #                     'vicuna': './data/vicuna/valid.jsonl',
-    #                     'sni': './data/sinst/11_/valid.jsonl'
-    #                     }
+    benchmark_configs = {'dolly': './data/dolly/valid.jsonl',
+                        'self_instruct': './data/self-inst/valid.jsonl',
+                        'vicuna': './data/vicuna/valid.jsonl',
+                        'sni': './data/sinst/11_/valid.jsonl'
+                        }
 
     benchmark_configs = {'test': args.test_data}
 
@@ -136,14 +136,14 @@ def main():
     with open(args.output_dir + "/eval.json", "w", encoding="utf-8") as f:
         json.dump(results, f, ensure_ascii=False, indent=4)
 
-    # result = evaluator.evaluate_benchmark_dataset(
-    #         dataset_path='./data/dialog/valid.jsonl',
-    #         dataset_name='dialog', batch_size=32,
-    #         max_seq_length=512, max_new_tokens=384)
+    result = evaluator.evaluate_benchmark_dataset(
+            dataset_path='./data/dialog/valid.jsonl',
+            dataset_name='dialog', batch_size=32,
+            max_seq_length=512, max_new_tokens=384)
     
-    # dialog_result = {"rouge_l_f1": result, "status": "success"}
-    # with open(args.output_dir + "/dialog_result_eval.json", "w", encoding="utf-8") as f:
-    #     json.dump(dialog_result, f, ensure_ascii=False, indent=4)
+    dialog_result = {"rouge_l_f1": result, "status": "success"}
+    with open(args.output_dir + "/dialog_result_eval.json", "w", encoding="utf-8") as f:
+        json.dump(dialog_result, f, ensure_ascii=False, indent=4)
     
 
 if __name__ == "__main__":

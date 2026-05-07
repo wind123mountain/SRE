@@ -42,7 +42,7 @@ def main():
 
     set_seed(extras.seed)
 
-    login(args.hf_token)
+    # login(args.hf_token)
 
     evaluator = Evaluator(
         tokenizer_path=args.student_tokenizer,

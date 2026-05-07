@@ -74,7 +74,7 @@ class Arguments:
     teacher_tokenizer: str = field(default='')
     student_model: str = field(default='google-bert/bert-base-uncased')
     student_tokenizer: str = field(default='google-bert/bert-base-uncased')
-    hf_token: str = field(default='')
+    hf_token: str = field(default=None)
 
     load_student_tokenizer_kwargs: dict = field(default_factory=dict)
     load_teacher_tokenizer_kwargs: dict = field(default_factory=dict)
