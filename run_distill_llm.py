@@ -63,7 +63,7 @@ def main():
                         'device_map': args.teach_device,
                         'trust_remote_code': True,
                         'output_hidden_states': True,
-                        'output_attentions': args.output_attentions,
+                        'output_attentions': True,
                         'attn_implementation': 'sdpa',
                         'token' : args.hf_token}
     
