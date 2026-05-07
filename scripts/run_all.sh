@@ -4,8 +4,6 @@ pip install uv
 uv sync
 source .venv/bin/activate
 
-pip install -r requirements.txt
-
 echo 'Start run training scripts, logs are being saved to ${OUTPUT_DIR}/train.log'
 
 
