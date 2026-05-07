@@ -126,7 +126,7 @@ class LLMModel(torch.nn.Module):
             hidden_states=span_hidden_states,
             span_weights=span_weights,
             token_hidden_states = hidden_states,
-            last_hidden_state=outputs.hidden_states[-1]
+            last_hidden_state=self.saved_hidden_states[-1]
         )
 
     def save(self, output_dir: str):
