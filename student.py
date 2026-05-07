@@ -119,6 +119,7 @@ class LLMModel(torch.nn.Module):
                                                                       self.weight_pooling, self.span_weight, 
                                                                       is_causal=True)
             
+        last_hidden_state=self.saved_hidden_states[-1]
         self.saved_hidden_states.clear() 
 
         return StudentOutput(
@@ -126,7 +127,7 @@ class LLMModel(torch.nn.Module):
             hidden_states=span_hidden_states,
             span_weights=span_weights,
             token_hidden_states = hidden_states,
-            last_hidden_state=outputs.hidden_states[-1]
+            last_hidden_state=last_hidden_state
         )
 
     def save(self, output_dir: str):
@@ -167,6 +168,7 @@ class StudentCausalModel(torch.nn.Module):
                 proj_list.append(proj)
             
             self.proj_hidden_layers = nn.ModuleList(proj_list)
+            self.proj_hidden_layers.to(self.device)
          
 
     def decode(self, inputs) -> StudentOutput:

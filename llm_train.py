@@ -169,12 +169,13 @@ class Trainer:
 
                         state_loss = cosine_token_weight_loss(s_hidden, t_didden, span_w)
             
-                        span_loss += self.hidden_loss_weights[i] * state_loss
+                        # span_loss += self.hidden_loss_weights[i] * state_loss
+                        span_loss += state_loss
 
                         if torch.isnan(span_loss):
                             print('span_loss nan')
                 if self.args.der_loss:
-                    der_loss = derivative_loss(student_outputs.hidden_states,
+                    der_loss = derivative_loss(projectors[i](student_outputs.hidden_states),
                                             teacher_outputs.hidden_states,
                                             teacher_outputs.span_weights) / (n_layer - 1)
 
