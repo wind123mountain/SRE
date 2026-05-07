@@ -90,6 +90,32 @@ class Trainer:
                                                                  self.teacher_tokenizer, 
                                                                  device=self.student.device)
         
+        # ===== DS-KD with CMA modules =====
+        self.s_hidden_size = self.student.model.model.config.hidden_size
+        self.t_hidden_size = self.teacher_model.model.config.hidden_size
+
+        self.dskd_index_projector_s2t = nn.Linear(
+            2 * self.s_hidden_size,
+            2 * self.t_hidden_size
+        ).to(self.student.device)
+
+        self.dskd_value_projector_t2s = nn.Linear(
+            self.t_hidden_size,
+            self.s_hidden_size
+        ).to(self.student.device)
+
+        self.dskd_value_projector_s2t = nn.Linear(
+            self.s_hidden_size,
+            self.t_hidden_size
+        ).to(self.student.device)
+
+        self.student_pad_id = self.student_tokenizer.pad_token_id
+        self.teacher_pad_id = self.teacher_tokenizer.pad_token_id
+
+        if self.student_pad_id is None:
+            self.student_pad_id = self.student_tokenizer.eos_token_id
+        if self.teacher_pad_id is None:
+            self.teacher_pad_id = self.teacher_tokenizer.eos_token_id
 
     def get_data_loader(self, args: Arguments, student_model_type: str, teacher_model_type: str):
         self.student_tokenizer = load_tokenizer(student_model_type, args.student_tokenizer, 
@@ -133,10 +159,158 @@ class Trainer:
 
         return loss
 
-    def knowledge_distillation_loss(self, student_outputs: StudentOutput, 
-                                    teacher_outputs: TeacherOutput = None, 
-                                    s_inputs = None, t_inputs = None,
-                                    s_offsets_mapping = None, t_offsets_mapping = None):
+    
+    def masked_kl_loss(self, student_logits, teacher_logits, mask, temperature=2.0):
+
+        student_log_probs = F.log_softmax(student_logits / temperature, dim=-1)
+        teacher_probs = F.softmax(teacher_logits / temperature, dim=-1)
+
+        loss = F.kl_div(
+            student_log_probs,
+            teacher_probs,
+            reduction="none"
+        ).sum(dim=-1)
+
+        mask = mask.float()
+        loss = (loss * mask).sum() / mask.sum().clamp(min=1.0)
+
+        return loss
+
+
+    def dskd_with_cma(
+        self,
+        student_outputs,
+        teacher_outputs,
+        student_inputs,
+        teacher_inputs,
+        labels,
+        temperature=2.0,
+    ):
+        device = self.student.device
+
+        s_input_ids = student_inputs["input_ids"].to(device)
+        t_input_ids = teacher_inputs["input_ids"].to(device)
+
+        labels = labels.to(device)
+
+        # Nếu không có teacher_labels thì dùng teacher_input_ids làm pseudo-label.
+        # Đây là cách hợp lý cho causal LM vì target thường là shifted input.
+        teacher_labels = teacher_inputs.get("labels", None)
+        if teacher_labels is None:
+            teacher_labels = t_input_ids.clone()
+            if "attention_mask" in teacher_inputs:
+                teacher_labels[teacher_inputs["attention_mask"].to(device) == 0] = -100
+        else:
+            teacher_labels = teacher_labels.to(device)
+
+        s_mask = labels.ne(-100)
+        t_mask = teacher_labels.ne(-100)
+
+        # formal ids để tránh index lỗi ở vị trí -100 / pad
+        s_formal_target = torch.where(s_mask, labels, torch.zeros_like(labels))
+        t_formal_target = torch.where(t_mask, teacher_labels, torch.zeros_like(teacher_labels))
+
+        s_formal_input = torch.where(
+            s_mask,
+            s_input_ids[:, :labels.size(1)],
+            torch.zeros_like(labels)
+        )
+
+        t_formal_input = torch.where(
+            t_mask,
+            t_input_ids[:, :teacher_labels.size(1)],
+            torch.zeros_like(teacher_labels)
+        )
+
+        # Embedding layers
+        s_embed_layer = self.student.model.model.get_input_embeddings()
+        t_embed_layer = self.teacher_model.model.get_input_embeddings()
+
+        with torch.no_grad():
+            s_input_embeds = s_embed_layer(s_formal_input)
+            s_target_embeds = s_embed_layer(s_formal_target)
+
+            t_input_embeds = t_embed_layer(t_formal_input)
+            t_target_embeds = t_embed_layer(t_formal_target)
+
+        # Index embedding dùng để align student token position với teacher token position
+        s_index_embeds = torch.cat([s_input_embeds, s_target_embeds], dim=-1)
+        t_index_embeds = torch.cat([t_input_embeds, t_target_embeds], dim=-1)
+
+        s_index_embeds = s_index_embeds / s_index_embeds.std().clamp(min=1e-5)
+        t_index_embeds = t_index_embeds / t_index_embeds.std().clamp(min=1e-5)
+
+        # Hidden states
+        s_hidden = student_outputs.embeddings
+        t_hidden = teacher_outputs.hidden_states[-1]
+
+        s_hidden = s_hidden[:, :s_mask.size(1), :]
+        t_hidden = t_hidden[:, :t_mask.size(1), :]
+
+        t_hidden_norm = t_hidden / t_hidden.std().clamp(min=1e-5)
+
+        # Student query -> teacher index space
+        s_q = self.dskd_index_projector_s2t(s_index_embeds).float()
+        t_k = t_index_embeds.float()
+
+        align = torch.matmul(s_q, t_k.transpose(-1, -2))
+        align = align / math.sqrt(s_q.size(-1))
+
+        align_mask = s_mask.float().unsqueeze(-1) * t_mask.float().unsqueeze(1)
+        align = align.masked_fill(align_mask.eq(0), -1e4)
+
+        # ======================
+        # T2S: teacher -> student
+        # ======================
+        t2s_weight = torch.softmax(align, dim=-1)
+
+        t_value_for_student = self.dskd_value_projector_t2s(
+            t_hidden_norm + t_target_embeds
+        ).float()
+
+        t2s_hidden = torch.matmul(t2s_weight, t_value_for_student)
+        t2s_logits = self.student.model.model.lm_head(t2s_hidden)
+
+        t2s_loss = self.masked_kl_loss(
+            student_logits=student_outputs.logits[:, :s_mask.size(1), :],
+            teacher_logits=t2s_logits.detach(),
+            mask=s_mask,
+            temperature=temperature,
+        )
+
+        # ======================
+        # S2T: student -> teacher
+        # ======================
+        s2t_weight = torch.softmax(align.transpose(-1, -2), dim=-1)
+
+        s_value_for_teacher = self.dskd_value_projector_s2t(s_hidden).float()
+        s2t_hidden = torch.matmul(s2t_weight, s_value_for_teacher)
+
+        s2t_logits = self.teacher_lm_head(s2t_hidden)
+
+        teacher_logits = self.teacher_lm_head(t_hidden)
+
+        s2t_loss = self.masked_kl_loss(
+            student_logits=s2t_logits,
+            teacher_logits=teacher_logits.detach(),
+            mask=t_mask,
+            temperature=temperature,
+        )
+
+        dskd_loss = t2s_loss + s2t_loss
+
+        return dskd_loss
+
+    def knowledge_distillation_loss(
+        self,
+        student_outputs: StudentOutput,
+        teacher_outputs: TeacherOutput = None,
+        s_inputs=None,
+        t_inputs=None,
+        s_offsets_mapping=None,
+        t_offsets_mapping=None,
+        labels=None,
+    ):
         kd_loss = 0
         temp_loss = torch.tensor(0)
 
@@ -197,13 +371,13 @@ class Trainer:
                 kd_loss += self.args.geom_loss_weight * score_loss
 
 
-                s_logits = self.student.model.model.lm_head(student_outputs.embeddings)
-                t_logits = self.teacher_lm_head(teacher_outputs.hidden_states[n_layer - 1])
+                # s_logits = self.student.model.model.lm_head(student_outputs.embeddings)
+                # t_logits = self.teacher_lm_head(teacher_outputs.hidden_states[n_layer - 1])
                 
-                s_map_logits = s_logits[:, :, self.s_id_mapping]
-                t_map_logits = t_logits[:, :, self.t_id_mapping]
-                kd_loss += self.soft_label_distill_loss(s_map_logits, t_map_logits, self.temperature)
-                # lấy last hidden state ra
+                # s_map_logits = s_logits[:, :, self.s_id_mapping]
+                # t_map_logits = t_logits[:, :, self.t_id_mapping]
+                # kd_loss += self.soft_label_distill_loss(s_map_logits, t_map_logits, self.temperature)
+                
 
         return kd_loss, temp_loss.item()
 
@@ -221,10 +395,15 @@ class Trainer:
         kd_loss, _t_loss_= 0, 0
 
         if self.args.knowledge_distillation and teacher_outputs is not None:
-            kd_loss, _t_loss_ = self.knowledge_distillation_loss(student_outputs, teacher_outputs, 
-                                                                 student_inputs, teacher_inputs, 
-                                                                 s_offset_mapping, t_offset_mapping)
-
+            kd_loss, _t_loss_ = self.knowledge_distillation_loss(
+                student_outputs,
+                teacher_outputs,
+                student_inputs,
+                teacher_inputs,
+                s_offset_mapping,
+                t_offset_mapping,
+                labels=labels,
+            )
         loss = self.alpha * hard_loss + (1.0 - self.alpha) * kd_loss
 
         self.step += 1
