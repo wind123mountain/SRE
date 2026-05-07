@@ -182,7 +182,7 @@ class Trainer:
                         print('der_loss nan')
 
                 kd_loss += 1.0 * span_loss
-                kd_loss += 1.0 * der_loss
+                kd_loss += 0.5 * der_loss
 
 
                 s_hidden = F.normalize(student_outputs.embeddings, dim=-1, eps=1e-5)
@@ -202,6 +202,7 @@ class Trainer:
                 s_map_logits = s_logits[:, :, self.s_id_mapping]
                 t_map_logits = t_logits[:, :, self.t_id_mapping]
                 kd_loss += self.soft_label_distill_loss(s_map_logits, t_map_logits, self.temperature)
+                # lấy last hidden state ra
 
         return kd_loss, temp_loss.item()
 
@@ -237,7 +238,7 @@ def train(args: Arguments, trainer: Trainer, evaluator: Evaluator, grad_accum_st
     train_loader = trainer.train_loader
 
     optimizer = optim.AdamW(trainer.student.model.parameters(), lr=args.learning_rate)
-    optimizer.add_param_group({"params": trainer.student.proj_hidden_layers.parameters(), "lr": 5e-4, "weight_decay": 0.0})
+    optimizer.add_param_group({"params": trainer.student.proj_hidden_layers.parameters(), "lr": 1e-3, "weight_decay": 0.0})
 
     num_steps = len(train_loader) // grad_accum_steps + 1
     total_traning_steps = num_steps * args.num_train_epochs
@@ -294,7 +295,7 @@ def train(args: Arguments, trainer: Trainer, evaluator: Evaluator, grad_accum_st
                 break
 
         with torch.cuda.amp.autocast(dtype=torch.bfloat16):
-            evaluator.model = trainer.student.model.model
+            evaluator.model = trainer.student.model.model 
             dolly = evaluator.evaluate_benchmark_dataset(
                 dataset_path=args.val_data,
                 dataset_name='dolly', batch_size=64,

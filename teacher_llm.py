@@ -51,6 +51,7 @@ class TeacherOutput(ModelOutput):
     attention_mask: Any = None
     span_weights: Any = None
     token_hidden_states: Any = None
+    last_hidden_state: Any = None
 
 
 
@@ -142,7 +143,8 @@ class TeacherMistral7B(Teacher):
             pooler_idx = safe_idx,
             attention_mask = inputs['attention_mask'],
             span_weights = span_weights,
-            token_hidden_states = outputs.hidden_states
+            token_hidden_states = outputs.hidden_states,
+            last_hidden_state = outputs.hidden_states[-1]
         )
 
 
@@ -208,7 +210,8 @@ class TeacherQwen(Teacher):
             pooler_idx = safe_idx,
             attention_mask = inputs['attention_mask'],
             span_weights = span_weights,
-            token_hidden_states = outputs.hidden_states
+            token_hidden_states = outputs.hidden_states,
+            last_hidden_state = outputs.hidden_states[-1]
         )
 
 
@@ -274,6 +277,7 @@ class TeacherGPT2(Teacher):
             pooler_idx = safe_idx,
             attention_mask = inputs['attention_mask'],
             span_weights = span_weights,
-            token_hidden_states = outputs.hidden_states
+            token_hidden_states = outputs.hidden_states,
+            last_hidden_state = outputs.hidden_states[-1]
         )
 

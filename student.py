@@ -22,6 +22,7 @@ class StudentOutput(ModelOutput):
     hidden_states: Any = None
     span_weights: Any = None
     token_hidden_states: Any = None
+    last_hidden_state: Any = None
 
 
 class LLMModel(torch.nn.Module):
@@ -124,7 +125,8 @@ class LLMModel(torch.nn.Module):
             logits=outputs.logits,
             hidden_states=span_hidden_states,
             span_weights=span_weights,
-            token_hidden_states = hidden_states
+            token_hidden_states = hidden_states,
+            last_hidden_state=outputs.hidden_states[-1]
         )
 
     def save(self, output_dir: str):

@@ -58,7 +58,7 @@ def main():
         ValueError('teacher model type error')
     
 
-    load_model_kwargs = {'torch_dtype': torch.float16,
+    load_model_kwargs = {'torch_dtype': torch.bfloat16,
                         'quantization_config': None,
                         'device_map': args.teach_device,
                         'trust_remote_code': True,
@@ -124,21 +124,21 @@ def main():
                         'sni': './data/sinst/11_/valid.jsonl'
                         }
 
-    benchmark_configs = {'test': args.test_data}
-
+    # benchmark_configs = {'test': args.test_data}
     results = evaluator.evaluate_multiple_benchmarks(
         benchmark_configs=benchmark_configs,
-        batch_size=32,
+        batch_size=16,
         max_seq_length=256,
         max_new_tokens=512
     )
+
 
     with open(args.output_dir + "/eval.json", "w", encoding="utf-8") as f:
         json.dump(results, f, ensure_ascii=False, indent=4)
 
     result = evaluator.evaluate_benchmark_dataset(
             dataset_path='./data/dialog/valid.jsonl',
-            dataset_name='dialog', batch_size=32,
+            dataset_name='dialog', batch_size=16,
             max_seq_length=512, max_new_tokens=384)
     
     dialog_result = {"rouge_l_f1": result, "status": "success"}
