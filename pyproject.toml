@@ -12,7 +12,7 @@ dependencies = [
     "jupyter>=1.1.1",
     "math-verify>=0.7.0",
     "peft==0.18.1",
-    "transformers==4.51.3",
+    "transformers==4.47.1",
     "trl==0.17.0",
     "typer>=0.15.2",
     "wandb",
