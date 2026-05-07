@@ -65,7 +65,7 @@ OPTS+=" --student_tokenizer openai-community/gpt2-medium"
 OPTS+=" --seed ${SEED}"
 OPTS+=" --student_model_type gpt2"
 OPTS+=" --teacher_model_type qwen"
-OPTS+=" --use_lora True"
+OPTS+=" --use_lora False"
 OPTS+=" --grad_accum_steps 1"
 
 # ==== Gọi Python ====
