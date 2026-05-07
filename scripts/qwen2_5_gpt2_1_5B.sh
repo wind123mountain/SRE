@@ -65,5 +65,5 @@ OPTS+=" --use_lora True"
 OPTS+=" --grad_accum_steps 4"
 
 # ==== Gọi Python ====
-# python run_distill_llm.py ${OPTS} >> ${OUTPUT_DIR}/train.log 2>&1
-python run_distill_llm.py ${OPTS}
+python run_distill_llm.py ${OPTS} >> ${OUTPUT_DIR}/train.log 2>&1
+# python run_distill_llm.py ${OPTS}
