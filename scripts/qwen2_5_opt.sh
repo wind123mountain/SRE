@@ -53,7 +53,7 @@ OPTS+=" --student_model facebook/opt-2.7b"
 OPTS+=" --student_tokenizer facebook/opt-2.7b"
 
 # hf token
-OPTS+=" --hf_token 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"
+OPTS+=" --hf_token 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"
 
 # extra arguments
 OPTS+=" --seed ${SEED}"

@@ -55,7 +55,7 @@ OPTS+=" --student_model openai-community/gpt2-xl"
 OPTS+=" --student_tokenizer openai-community/gpt2-xl"
 
 # hf token
-OPTS+=" --hf_token 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"
+OPTS+=" --hf_token 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"
 
 # extra arguments
 OPTS+=" --seed ${SEED}"
