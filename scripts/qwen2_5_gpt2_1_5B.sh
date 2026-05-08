@@ -4,7 +4,7 @@ SEED=$1
 
 BASE_PATH=.
 HARD_LABEL_LOSS_WEIGHT=0.5
-TEMPERATURE=3.0
+TEMPERATURE=5.0
 LR=1e-4
 OUTPUT_DIR="${BASE_PATH}/outputs/gpt2_1_5B/seed-${SEED}-hlw-${HARD_LABEL_LOSS_WEIGHT}-temp-${TEMPERATURE}-lr-${LR}"
 CKPT_NAME="qwen-2-5-gpt2-1-5B-checkpoint"
@@ -28,8 +28,8 @@ OPTS+=" --pad_to_multiple_of 1"
 OPTS+=" --temperature ${TEMPERATURE}"
 
 # devices
-OPTS+=" --teach_device cuda:1"
-OPTS+=" --student_device cuda:1"
+OPTS+=" --teach_device cuda:0"
+OPTS+=" --student_device cuda:0"
 
 # loss
 OPTS+=" --hard_label_loss_weight ${HARD_LABEL_LOSS_WEIGHT}"

@@ -5,8 +5,8 @@ SEED=$1
 # ==== Định nghĩa các biến ====
 BASE_PATH=.
 HARD_LABEL_LOSS_WEIGHT=0.5
-TEMPERATURE=3.0
-LR=1e-4
+TEMPERATURE=5.0
+LR=5e-5
 OUTPUT_DIR="${BASE_PATH}/outputs/qwen1_5_gpt2_340m/seed-${SEED}-hlw-${HARD_LABEL_LOSS_WEIGHT}-temp-${TEMPERATURE}-lr-${LR}"
 CKPT_NAME="qwen1_5_gpt2_340m-checkpoint"
 
@@ -29,8 +29,8 @@ OPTS+=" --pad_to_multiple_of 1"
 OPTS+=" --temperature ${TEMPERATURE}"
 
 # devices
-OPTS+=" --teach_device cuda:3"
-OPTS+=" --student_device cuda:3"
+OPTS+=" --teach_device cuda:0"
+OPTS+=" --student_device cuda:0"
 
 # loss
 OPTS+=" --hard_label_loss_weight ${HARD_LABEL_LOSS_WEIGHT}"

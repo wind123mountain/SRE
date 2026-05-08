@@ -127,7 +127,7 @@ def main():
     # benchmark_configs = {'test': args.test_data}
     results = evaluator.evaluate_multiple_benchmarks(
         benchmark_configs=benchmark_configs,
-        batch_size=16,
+        batch_size=8,
         max_seq_length=256,
         max_new_tokens=512
     )
@@ -138,7 +138,7 @@ def main():
 
     result = evaluator.evaluate_benchmark_dataset(
             dataset_path='./data/dialog/valid.jsonl',
-            dataset_name='dialog', batch_size=16,
+            dataset_name='dialog', batch_size=8,
             max_seq_length=512, max_new_tokens=384)
     
     dialog_result = {"rouge_l_f1": result, "status": "success"}

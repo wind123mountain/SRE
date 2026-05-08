@@ -159,6 +159,27 @@ class Trainer:
 
         return loss
 
+    def js_div(self, student_logits, teacher_logits,):
+        p = F.softmax(student_logits, dim=-1)
+        q = F.softmax(teacher_logits, dim=-1)
+
+        m = 0.5 * (p + q)
+        eps = 1e-6
+        p = p.clamp(min=eps)
+        q = q.clamp(min=eps)
+        m = m.clamp(min=eps)
+
+        js = 0.5 * (
+            F.kl_div(m.log(), p, reduction='none').sum(dim=-1) +
+            F.kl_div(m.log(), q, reduction='none').sum(dim=-1)
+        )
+
+        mask = (student_logits.abs().sum(dim=-1) != 0).float()
+
+        js = (js * mask).sum() / mask.sum().clamp(min=1e-5)
+
+        return js / math.log(2)
+
     
     def masked_kl_loss(self, student_logits, teacher_logits, mask, temperature=2.0):
 
@@ -175,6 +196,18 @@ class Trainer:
         loss = (loss * mask).sum() / mask.sum().clamp(min=1.0)
 
         return loss
+
+    def reverse_kl(self, logits, teacher_logits, mask):
+        student_probs = F.softmax(logits, dim=-1, dtype=torch.float32)
+        student_logprobs = F.log_softmax(logits, dim=-1, dtype=torch.float32)
+        teacher_logprobs = F.log_softmax(teacher_logits, dim=-1, dtype=torch.float32)
+        inf_mask = torch.isinf(teacher_logits) | torch.isinf(logits)
+        prod_probs = torch.masked_fill(student_probs * teacher_logprobs, inf_mask, 0)
+        prod_probs -= torch.masked_fill(student_probs * student_logprobs, inf_mask, 0)
+        x = torch.sum(prod_probs, dim=-1).view(-1)
+        mask = mask.float()
+        distil_loss = -torch.sum(x * mask.view(-1), dim=0) / torch.sum(mask.view(-1), dim=0)
+        return distil_loss
 
 
     def dskd_with_cma(
@@ -193,8 +226,6 @@ class Trainer:
 
         labels = labels.to(device)
 
-        # Nếu không có teacher_labels thì dùng teacher_input_ids làm pseudo-label.
-        # Đây là cách hợp lý cho causal LM vì target thường là shifted input.
         teacher_labels = teacher_inputs.get("labels", None)
         if teacher_labels is None:
             teacher_labels = t_input_ids.clone()
@@ -222,7 +253,6 @@ class Trainer:
             torch.zeros_like(teacher_labels)
         )
 
-        # Embedding layers
         s_embed_layer = self.student.model.model.get_input_embeddings()
         t_embed_layer = self.teacher_model.model.get_input_embeddings()
 
@@ -233,7 +263,6 @@ class Trainer:
             t_input_embeds = t_embed_layer(t_formal_input)
             t_target_embeds = t_embed_layer(t_formal_target)
 
-        # Index embedding dùng để align student token position với teacher token position
         s_index_embeds = torch.cat([s_input_embeds, s_target_embeds], dim=-1)
         t_index_embeds = torch.cat([t_input_embeds, t_target_embeds], dim=-1)
 
@@ -247,7 +276,7 @@ class Trainer:
         s_hidden = s_hidden[:, :s_mask.size(1), :]
         t_hidden = t_hidden[:, :t_mask.size(1), :]
 
-        t_hidden_norm = t_hidden / t_hidden.std().clamp(min=1e-5)
+        # t_hidden_norm = t_hidden / t_hidden.std().clamp(min=1e-5)
 
         # Student query -> teacher index space
         s_q = self.dskd_index_projector_s2t(s_index_embeds).float()
@@ -259,30 +288,29 @@ class Trainer:
         align_mask = s_mask.float().unsqueeze(-1) * t_mask.float().unsqueeze(1)
         align = align.masked_fill(align_mask.eq(0), -1e4)
 
-        # ======================
-        # T2S: teacher -> student
-        # ======================
-        t2s_weight = torch.softmax(align, dim=-1)
+        # # ======================
+        # # T2S: teacher -> student
+        # # ======================
+        # t2s_weight = torch.softmax(align, dim=-1)
 
-        t_value_for_student = self.dskd_value_projector_t2s(
-            t_target_embeds + t_hidden_norm
-        ).float()
+        # t_value_for_student = self.dskd_value_projector_t2s(
+        #     t_target_embeds + t_hidden_norm
+        # ).float()
 
-        t2s_hidden = torch.matmul(t2s_weight, t_value_for_student)
-        t2s_logits = self.student.model.model.lm_head(t2s_hidden)
+        # t2s_hidden = torch.matmul(t2s_weight, t_value_for_student)
+        # t2s_logits = self.student.model.model.lm_head(t2s_hidden)
 
-        t2s_loss = self.masked_kl_loss(
-            student_logits=student_outputs.logits[:, :s_mask.size(1), :],
-            teacher_logits=t2s_logits.detach(),
-            mask=s_mask,
-            temperature=temperature,
-        )
+        # t2s_loss = self.masked_kl_loss(
+        #     student_logits=student_outputs.logits[:, :s_mask.size(1), :],
+        #     teacher_logits=t2s_logits.detach(),
+        #     mask=s_mask,
+        #     temperature=temperature,
+        # )
 
         # ======================
         # S2T: student -> teacher
         # ======================
         s2t_weight = torch.softmax(align.transpose(-1, -2), dim=-1)
-        # print("s_hidden shape: ", s_hidden.shape)
 
         s_value_for_teacher = self.dskd_value_projector_s2t(s_hidden).float()
         s2t_hidden = torch.matmul(s2t_weight, s_value_for_teacher)
@@ -291,14 +319,19 @@ class Trainer:
 
         teacher_logits = self.teacher_lm_head(t_hidden)
 
-        s2t_loss = self.masked_kl_loss(
-            student_logits=s2t_logits,
+        # s2t_loss = self.masked_kl_loss(
+        #     student_logits=s2t_logits,
+        #     teacher_logits=teacher_logits.detach(),
+        #     mask=t_mask,
+        #     temperature=temperature,
+        # )
+        s2t_loss = self.reverse_kl(
+            logits=s2t_logits,
             teacher_logits=teacher_logits.detach(),
-            mask=t_mask,
-            temperature=temperature,
+            mask=t_mask
         )
 
-        dskd_loss = t2s_loss + s2t_loss
+        dskd_loss = s2t_loss
 
         return dskd_loss
 
@@ -367,7 +400,7 @@ class Trainer:
                     labels=labels,
                     temperature=self.temperature,
                 )
-                kd_loss += 0.1 * dskd_loss
+                kd_loss += dskd_loss
                 
 
 
@@ -382,12 +415,13 @@ class Trainer:
                 kd_loss += self.args.geom_loss_weight * score_loss
 
 
-                # s_logits = self.student.model.model.lm_head(student_outputs.embeddings)
-                # t_logits = self.teacher_lm_head(teacher_outputs.hidden_states[n_layer - 1])
+                s_logits = self.student.model.model.lm_head(student_outputs.embeddings)
+                t_logits = self.teacher_lm_head(teacher_outputs.hidden_states[n_layer - 1])
                 
-                # s_map_logits = s_logits[:, :, self.s_id_mapping]
-                # t_map_logits = t_logits[:, :, self.t_id_mapping]
+                s_map_logits = s_logits[:, :, self.s_id_mapping]
+                t_map_logits = t_logits[:, :, self.t_id_mapping]
                 # kd_loss += self.soft_label_distill_loss(s_map_logits, t_map_logits, self.temperature)
+                kd_loss += self.js_div(s_map_logits, t_map_logits)
                 
 
         return kd_loss, temp_loss.item()
@@ -429,7 +463,7 @@ def train(args: Arguments, trainer: Trainer, evaluator: Evaluator, grad_accum_st
     train_loader = trainer.train_loader
 
     optimizer = optim.AdamW(trainer.student.model.parameters(), lr=args.learning_rate)
-    optimizer.add_param_group({"params": trainer.student.proj_hidden_layers.parameters(), "lr": 1e-3, "weight_decay": 0.0})
+    optimizer.add_param_group({"params": trainer.student.proj_hidden_layers.parameters(), "lr": 5e-4, "weight_decay": 0.0})
     optimizer = optim.AdamW(
         trainer.student.model.parameters(),
         lr=args.learning_rate
@@ -438,7 +472,7 @@ def train(args: Arguments, trainer: Trainer, evaluator: Evaluator, grad_accum_st
     # hidden projectors
     optimizer.add_param_group({
         "params": trainer.student.proj_hidden_layers.parameters(),
-        "lr": 1e-3,
+        "lr": 5e-4,
         "weight_decay": 0.0
     })
 
@@ -446,19 +480,19 @@ def train(args: Arguments, trainer: Trainer, evaluator: Evaluator, grad_accum_st
 
     optimizer.add_param_group({
         "params": trainer.dskd_index_projector_s2t.parameters(),
-        "lr": 1e-3,
+        "lr": 5e-4,
         "weight_decay": 0.0
     })
 
     optimizer.add_param_group({
         "params": trainer.dskd_value_projector_t2s.parameters(),
-        "lr": 1e-3,
+        "lr": 5e-4,
         "weight_decay": 0.0
     })
 
     optimizer.add_param_group({
         "params": trainer.dskd_value_projector_s2t.parameters(),
-        "lr": 1e-3,
+        "lr": 5e-4,
         "weight_decay": 0.0
     })
     num_steps = len(train_loader) // grad_accum_steps + 1
