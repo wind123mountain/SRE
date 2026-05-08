@@ -3,8 +3,8 @@
 SEED=$1
 BASE_PATH=.
 HARD_LABEL_LOSS_WEIGHT=0.5
-TEMPERATURE=3.0
-LR=1e-4
+TEMPERATURE=2.0
+LR=5e-4
 OUTPUT_DIR="${BASE_PATH}/outputs/opt/seed-${SEED}-hlw-${HARD_LABEL_LOSS_WEIGHT}-temp-${TEMPERATURE}-lr-${LR}"
 CKPT_NAME="qwen-2-5-opt-checkpoint"
 
@@ -26,8 +26,8 @@ OPTS+=" --pad_to_multiple_of 1"
 OPTS+=" --temperature ${TEMPERATURE}"
 
 # devices
-OPTS+=" --teach_device cuda:2"
-OPTS+=" --student_device cuda:2"
+OPTS+=" --teach_device cuda:1"
+OPTS+=" --student_device cuda:1"
 
 # loss
 OPTS+=" --hard_label_loss_weight ${HARD_LABEL_LOSS_WEIGHT}"
@@ -62,7 +62,7 @@ OPTS+=" --student_tokenizer facebook/opt-2.7b"
 OPTS+=" --seed ${SEED}"
 OPTS+=" --student_model_type opt"
 OPTS+=" --teacher_model_type qwen"
-OPTS+=" --use_lora True"
+OPTS+=" --use_lora False"
 OPTS+=" --grad_accum_steps 1"
 
 # ==== Gọi Python ====
