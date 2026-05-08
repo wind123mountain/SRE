@@ -26,8 +26,8 @@ OPTS+=" --pad_to_multiple_of 1"
 OPTS+=" --temperature ${TEMPERATURE}"
 
 # devices
-OPTS+=" --teach_device cuda:1"
-OPTS+=" --student_device cuda:1"
+OPTS+=" --teach_device cuda:0"
+OPTS+=" --student_device cuda:0"
 
 # loss
 OPTS+=" --hard_label_loss_weight ${HARD_LABEL_LOSS_WEIGHT}"
