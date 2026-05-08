@@ -413,7 +413,7 @@ class Trainer:
                     labels=labels,
                     temperature=self.temperature,
                 )
-                kd_loss += dskd_loss
+                kd_loss += 0.5 * dskd_loss
                 
 
 
