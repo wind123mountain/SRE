@@ -4,7 +4,7 @@ SEED=$1
 
 # ==== Định nghĩa các biến ====
 BASE_PATH=.
-HARD_LABEL_LOSS_WEIGHT=0.5
+HARD_LABEL_LOSS_WEIGHT=0.3
 TEMPERATURE=5.0
 LR=5e-5
 OUTPUT_DIR="${BASE_PATH}/outputs/qwen1_5_gpt2_340m/seed-${SEED}-hlw-${HARD_LABEL_LOSS_WEIGHT}-temp-${TEMPERATURE}-lr-${LR}"

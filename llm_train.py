@@ -209,6 +209,19 @@ class Trainer:
         distil_loss = -torch.sum(x * mask.view(-1), dim=0) / torch.sum(mask.view(-1), dim=0)
         return distil_loss
 
+    def skewed_forward_kl(self, logits, teacher_logits, lam=0.1):
+        teacher_probs = F.softmax(teacher_logits, dim=-1, dtype=torch.float32)
+        student_probs = F.softmax(logits, dim=-1, dtype=torch.float32)
+        mixed_probs = lam * teacher_probs + (1-lam) * student_probs
+        mixed_logprobs = torch.log(mixed_probs)
+        
+        mask = (logits.abs().sum(dim=-1) != 0).float()
+        inf_mask = torch.isinf(logits) | torch.isinf(teacher_logits)
+
+        prod_probs = torch.masked_fill(teacher_probs * mixed_logprobs, inf_mask, 0)
+        x = torch.sum(prod_probs, dim=-1).view(-1)
+        distil_loss = -torch.sum(x * mask.view(-1), dim=0) / torch.sum(mask.view(-1), dim=0)
+        return distil_loss
 
     def dskd_with_cma(
         self,
@@ -421,7 +434,7 @@ class Trainer:
                 s_map_logits = s_logits[:, :, self.s_id_mapping]
                 t_map_logits = t_logits[:, :, self.t_id_mapping]
                 # kd_loss += self.soft_label_distill_loss(s_map_logits, t_map_logits, self.temperature)
-                kd_loss += self.js_div(s_map_logits, t_map_logits)
+                kd_loss += self.skewed_forward_kl(s_map_logits, t_map_logits)
                 
 
         return kd_loss, temp_loss.item()
