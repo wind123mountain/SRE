@@ -405,15 +405,15 @@ class Trainer:
 
                 kd_loss += 1.0 * span_loss
                 kd_loss += 0.5 * der_loss
-                dskd_loss = self.dskd_with_cma(
-                    student_outputs=student_outputs,
-                    teacher_outputs=teacher_outputs,
-                    student_inputs=s_inputs,
-                    teacher_inputs=t_inputs,
-                    labels=labels,
-                    temperature=self.temperature,
-                )
-                kd_loss += 0.5 * dskd_loss
+                # dskd_loss = self.dskd_with_cma(
+                #     student_outputs=student_outputs,
+                #     teacher_outputs=teacher_outputs,
+                #     student_inputs=s_inputs,
+                #     teacher_inputs=t_inputs,
+                #     labels=labels,
+                #     temperature=self.temperature,
+                # )
+                # kd_loss += 0.5 * dskd_loss
                 
 
 
