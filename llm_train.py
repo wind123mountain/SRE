@@ -197,6 +197,16 @@ class Trainer:
 
         return loss
 
+    def forward_kl(logits, teacher_logits, mask):
+        teacher_probs = F.softmax(teacher_logits, dim=-1, dtype=torch.float32)
+        inf_mask = torch.isinf(logits)
+        student_logprobs = F.log_softmax(logits, dim=-1, dtype=torch.float32)
+        prod_probs = torch.masked_fill(teacher_probs * student_logprobs, inf_mask, 0)
+        x = torch.sum(prod_probs, dim=-1).view(-1)
+        mask = mask.float()
+        distil_loss = -torch.sum(x * mask.view(-1), dim=0) / torch.sum(mask.view(-1), dim=0)
+        return distil_loss
+
     def reverse_kl(self, logits, teacher_logits, mask):
         student_probs = F.softmax(logits, dim=-1, dtype=torch.float32)
         student_logprobs = F.log_softmax(logits, dim=-1, dtype=torch.float32)
@@ -338,7 +348,7 @@ class Trainer:
         #     mask=t_mask,
         #     temperature=temperature,
         # )
-        s2t_loss = self.reverse_kl(
+        s2t_loss = self.forward_kl(
             logits=s2t_logits,
             teacher_logits=teacher_logits.detach(),
             mask=t_mask
@@ -404,16 +414,16 @@ class Trainer:
                         print('der_loss nan')
 
                 kd_loss += 1.0 * span_loss
-                kd_loss += 0.5 * der_loss
-                # dskd_loss = self.dskd_with_cma(
-                #     student_outputs=student_outputs,
-                #     teacher_outputs=teacher_outputs,
-                #     student_inputs=s_inputs,
-                #     teacher_inputs=t_inputs,
-                #     labels=labels,
-                #     temperature=self.temperature,
-                # )
-                # kd_loss += 0.5 * dskd_loss
+                kd_loss += 0.1 * der_loss
+                dskd_loss = self.dskd_with_cma(
+                    student_outputs=student_outputs,
+                    teacher_outputs=teacher_outputs,
+                    student_inputs=s_inputs,
+                    teacher_inputs=t_inputs,
+                    labels=labels,
+                    temperature=self.temperature,
+                )
+                kd_loss += 0.5 * dskd_loss
                 
 
 
