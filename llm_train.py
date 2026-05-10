@@ -415,15 +415,15 @@ class Trainer:
 
                 kd_loss += 1.0 * span_loss
                 kd_loss += 0.1 * der_loss
-                dskd_loss = self.dskd_with_cma(
-                    student_outputs=student_outputs,
-                    teacher_outputs=teacher_outputs,
-                    student_inputs=s_inputs,
-                    teacher_inputs=t_inputs,
-                    labels=labels,
-                    temperature=self.temperature,
-                )
-                kd_loss += 0.5 * dskd_loss
+                # dskd_loss = self.dskd_with_cma(
+                #     student_outputs=student_outputs,
+                #     teacher_outputs=teacher_outputs,
+                #     student_inputs=s_inputs,
+                #     teacher_inputs=t_inputs,
+                #     labels=labels,
+                #     temperature=self.temperature,
+                # )
+                # kd_loss += 0.5 * dskd_loss
                 
 
 
@@ -445,6 +445,7 @@ class Trainer:
                 t_map_logits = t_logits[:, :, self.t_id_mapping]
                 # kd_loss += self.soft_label_distill_loss(s_map_logits, t_map_logits, self.temperature)
                 kd_loss += self.skewed_forward_kl(s_map_logits, t_map_logits)
+                kd_loss += self.forward_kl(s_map_logits, t_map_logits, mask=(logits.abs().sum(dim=-1) != 0))
                 
 
         return kd_loss, temp_loss.item()
