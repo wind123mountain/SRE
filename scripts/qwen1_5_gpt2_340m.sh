@@ -6,7 +6,7 @@ SEED=$1
 BASE_PATH=.
 HARD_LABEL_LOSS_WEIGHT=0.5
 TEMPERATURE=5.0
-LR=5e-5
+LR=1e-4
 OUTPUT_DIR="${BASE_PATH}/outputs/qwen1_5_gpt2_340m/seed-${SEED}-hlw-${HARD_LABEL_LOSS_WEIGHT}-temp-${TEMPERATURE}-lr-${LR}"
 CKPT_NAME="qwen1_5_gpt2_340m-checkpoint"
 
