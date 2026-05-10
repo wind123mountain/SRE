@@ -18,6 +18,4 @@ bash ./scripts/qwen2_5_gpt2_1_5B.sh 42
 bash ./scripts/qwen2_5_opt.sh 42
 bash ./scripts/qwen1_5_gpt2_340m.sh 42
 
-# wait
-bash ./scripts/qwen2_5_opt.sh 42
 echo "=== All done ==="
