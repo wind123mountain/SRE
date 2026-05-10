@@ -48,7 +48,7 @@ class Arguments:
     weight_decay: float = field(default=0.01)
     warmup_ratio: float = field(default=0.1)
 
-    geom_loss_weight: float = field(default=1.0)
+    geom_loss_weight: float = field(default=3.0)
     hard_label_loss_weight: float = field(default=1.0)
 
     
