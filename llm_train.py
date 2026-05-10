@@ -197,7 +197,7 @@ class Trainer:
 
         return loss
 
-    def forward_kl(logits, teacher_logits, mask):
+    def forward_kl(self, logits, teacher_logits, mask):
         teacher_probs = F.softmax(teacher_logits, dim=-1, dtype=torch.float32)
         inf_mask = torch.isinf(logits)
         student_logprobs = F.log_softmax(logits, dim=-1, dtype=torch.float32)
