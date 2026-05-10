@@ -209,7 +209,7 @@ class Trainer:
         distil_loss = -torch.sum(x * mask.view(-1), dim=0) / torch.sum(mask.view(-1), dim=0)
         return distil_loss
 
-    def skewed_forward_kl(self, logits, teacher_logits, lam=0.1):
+    def skewed_forward_kl(self, logits, teacher_logits, lam=0.01):
         teacher_probs = F.softmax(teacher_logits, dim=-1, dtype=torch.float32)
         student_probs = F.softmax(logits, dim=-1, dtype=torch.float32)
         mixed_probs = lam * teacher_probs + (1-lam) * student_probs
