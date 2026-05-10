@@ -445,7 +445,7 @@ class Trainer:
                 t_map_logits = t_logits[:, :, self.t_id_mapping]
                 # kd_loss += self.soft_label_distill_loss(s_map_logits, t_map_logits, self.temperature)
                 # kd_loss += self.skewed_forward_kl(s_map_logits, t_map_logits)
-                kd_loss += self.forward_kl(s_map_logits, t_map_logits, mask=(logits.abs().sum(dim=-1) != 0))
+                kd_loss += self.forward_kl(s_map_logits, t_map_logits, mask=(s_map_logits.abs().sum(dim=-1) != 0))
                 
 
         return kd_loss, temp_loss.item()
